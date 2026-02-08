@@ -1,13 +1,11 @@
 import time
+import uuid
+import io
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')  # interactive backend
+matplotlib.use('TkAgg')  # Interactive GUI backend
 import matplotlib.pyplot as plt
-from flask import Flask, request, jsonify
-
-
-app = Flask(__name__)
-
+from s3 import upload_graph
 
 
 def time_complexity_visualizer(algorithm, n_min, n_max, n_step):
@@ -20,7 +18,9 @@ def time_complexity_visualizer(algorithm, n_min, n_max, n_step):
     ax.set_ylabel('Running time (seconds)')
     ax.set_title('Algorithm time complexity visualization (Live)')
     line, = ax.plot([], [], 'o-')
-    
+
+    overall_start = time.time()
+
     for i, n in enumerate(input_sizes):
         start_time = time.time()
         algorithm(n)
@@ -32,10 +32,25 @@ def time_complexity_visualizer(algorithm, n_min, n_max, n_step):
         ax.relim()
         ax.autoscale_view()
         plt.draw()
-        plt.pause(0.01)  # Small pause to allow plot to refresh
-    
-    plt.ioff()  # Disable interactive mode
-    plt.show()  # Keep plot open
+        plt.pause(0.01)
+
+    overall_end = time.time()
+    total_time_ms = round((overall_end - overall_start) * 1000, 3)
+
+    plt.ioff()
+
+    # Save to buffer for MinIO upload
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=120)
+    buf.seek(0)
+
+    # Upload to MinIO and get the URL
+    filename = f"graph_{uuid.uuid4().hex}.png"
+    graph_url = upload_graph(buf.read(), filename)
+
+    plt.show()  # Keep plot window open
+
+    return times, input_sizes, overall_start, overall_end, total_time_ms, graph_url
 
 def linear_search(n):
     for i in range(n):
@@ -87,27 +102,10 @@ algo = {
     "nested_loops": nested_loops
 }
 
-@app.route("/analyze", methods=["GET"])
-def analyze():
-    algo_name = request.args.get("algorithm", "bubble_sort").strip('"')
-    n_min = int(request.args.get("n_min", 10))
-    n_max = int(request.args.get("n_max", 1000))
-    n_step = int(request.args.get("n_step", 10))
-    
-    if algo_name not in algo:
-        return jsonify({"error": "Algorithm not found"}), 404
-    
-    algorithm_value = algo[algo_name]
-
-    fromTime = time.time()
-    time_complexity_visualizer(algorithm_value, n_min, n_max, n_step)
-
-    toTime = time.time()
-
-    totalTime = toTime - fromTime
-    
-    return jsonify({"status" : 200, "message": f"{algo_name} visualization completed.", "n_min": n_min, "n_max": n_max, "n_step": n_step, "total_time": totalTime})
-
-
-if __name__ == "__main__":
-    app.run(port=3000)
+# Known Big-O for each algorithm
+complexities = {
+    "bubble_sort": "O(n^2)",
+    "linear_search": "O(n)",
+    "binary_search": "O(log n)",
+    "nested_loops": "O(n^2)",
+}
