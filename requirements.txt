@@ -1,0 +1,7 @@
+flask
+flask-sqlalchemy
+pymysql
+numpy
+matplotlib
+boto3
+python-dotenv
