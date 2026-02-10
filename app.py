@@ -63,7 +63,6 @@ def analyze():
 def save_analysis():
     """
     Accepts JSON payload and saves it to the analysis_results table.
-    Returns 201 + the ID of the newly created record.
     """
     data = request.get_json()
     if not data:
