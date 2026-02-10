@@ -7,3 +7,6 @@ lists.py
 matrix_test.py
 
 .env*
+home_activity.txt
+venv/
+__pycache__/
